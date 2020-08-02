@@ -1,5 +1,14 @@
+//here--------------------------------------------------------------------------
+
+var zip = new JSZip();
+var destinationFolder = zip.folder("assets/minecraft/textures/gui/title/background");
+zip.file("pack.mcmeta", `{ "pack": { "pack_format": 5, "description": "Generated Resource Pack" } }`);
+
 const canvas = document.createElement('canvas');
 const ctx = canvas.getContext('2d');
+
+const preCanvas = document.createElement('canvas');
+const prectx = preCanvas.getContext('2d');
 
 class RadioInput {
   constructor(name, onChange) {
@@ -35,7 +44,7 @@ class CubeFace {
     this.faceName = faceName;
 
     this.anchor = document.createElement('a');
-    this.anchor.style.position='absolute';
+    this.anchor.style.position = 'absolute';
     this.anchor.title = faceName;
 
     this.img = document.createElement('img');
@@ -70,10 +79,20 @@ const mimeType = {
 
 function getDataURL(imgData, extension) {
   canvas.width = imgData.width;
-  canvas.height = imgData.height;
+  canvas.height = imgData.height //imgData.height;
   ctx.putImageData(imgData, 0, 0);
   return new Promise(resolve => {
     canvas.toBlob(blob => resolve(URL.createObjectURL(blob)), mimeType[extension], 0.92);
+  });
+}
+
+function addToZip(imgData, position) {
+  canvas.width = imgData.width;
+  canvas.height = imgData.height;
+  ctx.putImageData(imgData, 0, 0);
+  canvas.toBlob(function(blob) {
+    destinationFolder.file(`panorama_${position}.png`, blob);
+    console.log(position);
   });
 }
 
@@ -92,33 +111,87 @@ const settings = {
 };
 
 const facePositions = {
-  pz: {x: 1, y: 1},
-  nz: {x: 3, y: 1},
-  px: {x: 2, y: 1},
-  nx: {x: 0, y: 1},
-  py: {x: 1, y: 0},
-  ny: {x: 1, y: 2}
+  pz: {
+    x: 1,
+    y: 1
+  },
+  nz: {
+    x: 3,
+    y: 1
+  },
+  px: {
+    x: 2,
+    y: 1
+  },
+  nx: {
+    x: 0,
+    y: 1
+  },
+  py: {
+    x: 1,
+    y: 0
+  },
+  ny: {
+    x: 1,
+    y: 2
+  }
 };
 
 function loadImage() {
+
   const file = dom.imageInput.files[0];
 
   if (!file) {
     return;
   }
 
-  const img = new Image();
+  const preimg = new Image();
 
-  img.src = URL.createObjectURL(file);
+  preimg.src = URL.createObjectURL(file);
+  console.log(preimg)
 
-  img.addEventListener('load', () => {
-    const {width, height} = img;
-    canvas.width = width;
-    canvas.height = height;
-    ctx.drawImage(img, 0, 0);
-    const data = ctx.getImageData(0, 0, width, height);
+  preimg.addEventListener('load', () => {
+    let desireHeight = Math.ceil(preimg.width / 2);
+    let desireWidth = desireHeight * 2;
+    let offset = Math.floor((desireHeight - preimg.height) / 2);
+    preCanvas.width = desireWidth;
+    preCanvas.height = desireHeight;
+    prectx.beginPath();
+    prectx.rect(0, 0, desireWidth, desireHeight);
+    prectx.fillStyle = "#000"
+    prectx.fill();
+    prectx.closePath();
 
-    processImage(data);
+    prectx.drawImage(preimg, 0, offset * 2);
+    prectx.drawImage(preimg, 0, offset);
+
+    preCanvas.toBlob(function(blob) {
+      var img = document.createElement('img'),
+        url = URL.createObjectURL(blob);
+
+      img.onload = function() {
+        // no longer need to read the blob so it's revoked
+        URL.revokeObjectURL(url);
+
+        console.log(img)
+
+        const {
+          width,
+          height
+        } = img;
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0);
+        const data = ctx.getImageData(0, 0, width, height);
+
+        processImage(data);
+      };
+
+      img.src = url;
+      document.body.appendChild(img);
+
+    });
+
   });
 }
 
@@ -128,6 +201,7 @@ let workers = [];
 function processImage(data) {
   removeChildren(dom.faces);
   dom.generating.style.visibility = 'visible';
+  $("#download").prop("disabled", true)
 
   for (let worker of workers) {
     worker.terminate();
@@ -151,22 +225,51 @@ function renderFace(data, faceName, position) {
 
   const worker = new Worker('convert.js');
 
-  const setDownload = ({data: imageData}) => {
+  const setDownload = ({
+    data: imageData
+  }) => {
     const extension = settings.format.value;
+
+    switch (options.face) {
+      case "pz":
+        var panoramaOrder = 0;
+        break;
+      case "px":
+        var panoramaOrder = 1;
+        break;
+      case "nz":
+        var panoramaOrder = 2;
+        break;
+      case "nx":
+        var panoramaOrder = 3;
+        break;
+      case "py":
+        var panoramaOrder = 4;
+        break;
+      case "ny":
+        var panoramaOrder = 5;
+        break;
+    }
 
     getDataURL(imageData, extension)
       .then(url => face.setDownload(url, extension));
+
+    addToZip(imageData, panoramaOrder);
 
     finished++;
 
     if (finished === 6) {
       dom.generating.style.visibility = 'hidden';
+      $("#download").prop("disabled", false)
+
       finished = 0;
       workers = [];
     }
   };
 
-  const setPreview = ({data: imageData}) => {
+  const setPreview = ({
+    data: imageData
+  }) => {
     const x = imageData.width * position.x;
     const y = imageData.height * position.y;
 
@@ -185,3 +288,24 @@ function renderFace(data, faceName, position) {
 
   workers.push(worker);
 }
+
+$("#download").on("click", function() {
+
+  function pad2(n) {
+    return n < 10 ? '0' + n : n
+  }
+
+  let date = new Date();
+
+  let now = (date.getFullYear().toString() + pad2(date.getMonth() + 1) + pad2(date.getDate()) + pad2(date.getHours()) + pad2(date.getMinutes()) + pad2(date.getSeconds()));
+
+  $("#download").prop("disabled", true)
+  zip.generateAsync({
+    type: "blob"
+  }).then(function(blob) { // 1) generate the zip file
+    saveAs(blob, `panorama-${now}.zip`); // 2) trigger the download
+    $("#download").prop("disabled", false)
+  }, function(err) {
+    alert(err);
+  });
+});

@@ -26,8 +26,8 @@
 
 <body>
   <header>
-    <h1>Panorama to Cubemap</h1>
-    <aside>Convert a 360° panorama to six cube faces.</aside>
+    <h1>Minecraft Panorama Generator</h1>
+    <aside>Convert a 360° panorama to a Minecraft menu background.</aside>
   </header>
 
   <main>
@@ -36,10 +36,12 @@
       <label>Upload a panoramic image: <input id="imageInput" type="file" accept="image/*"></label>
       <ul>
         <li>The image should be formatted with the equirectangular projection.</li>
-        <li>The image should have an aspect ratio of 2:1 (the width must be exactly twice the height).</li>
+        <li>The image should ideally have an aspect ratio of 2:1 (the width should be exactly twice the height).</li>
       </ul>
-      <p>A cubemap will be generated from your image.</p>
+      <p>A Minecraft resource pack will be generated using your image.</p>
     </section>
+
+    <button id=download disabled>Download Resource Pack</button>
 
     <section class="settings">
       <h2>Settings</h2>
@@ -52,10 +54,15 @@
         <label><input type="radio" name="interpolation" value="cubic">Cubic (sharper details)</label>
         <label><input type="radio" name="interpolation" value="linear">Linear (softer details)</label>
       </fieldset>
-      <fieldset>
+      <fieldset style="display:none">
         <legend>Output format</legend>
         <label><input type="radio" name="format" value="png" checked>PNG</label>
         <label><input type="radio" name="format" value="jpg">JPEG</label>
+      </fieldset>
+      <fieldset>
+        <legend>Black Bottom Fix</legend>
+        <label><input type="radio" name="blackfix" value="true">YES (works best on textured ground when the source image is not full 360 degrees)</label>
+        <label><input type="radio" name="blackfix" value="false" checked>NO</label>
       </fieldset>
     </section>
 
@@ -77,6 +84,9 @@
     </p>
   </footer>
 
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/1.3.8/FileSaver.js"></script>
   <script src="main.js"></script>
 </body>
 </html>
