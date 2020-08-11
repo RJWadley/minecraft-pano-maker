@@ -188,7 +188,8 @@ function loadImage() {
       };
 
       img.src = url;
-      document.body.appendChild(img);
+      //TODO implement pano preview
+      //document.body.appendChild(img);
 
     });
 
